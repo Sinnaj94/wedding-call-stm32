@@ -1,156 +1,144 @@
-#include <Arduino.h>
+/*
+  SD card test
+
+  This example shows how use the utility libraries on which the'
+  SD library is based in order to get info about your SD card.
+  Very useful for testing a card when you're not sure whether its working or not.
+
+  The circuit:
+    SD card attached to SPI bus as follows:
+ ** MOSI - pin 11 on Arduino Uno/Duemilanove/Diecimila
+ ** MISO - pin 12 on Arduino Uno/Duemilanove/Diecimila
+ ** CLK - pin 13 on Arduino Uno/Duemilanove/Diecimila
+ ** CS - depends on your SD card shield or module.
+ Pin 4 used here for consistency with other Arduino examples
+
+
+  created  28 Mar 2011
+  by Limor Fried
+  modified 9 Apr 2012
+  by Tom Igoe
+*/
+// include the SD library:
+#include <SPI.h>
+#include <SD.h>
 #include <TMRpcm.h>
-#include <OneButton.h>
+
+// set up variables using the SD utility library functions:
+Sd2Card card;
+SdVolume volume;
+SdFile root;
+
+// change this to match your SD shield or module;
+// Arduino Ethernet shield: pin 4
+// Adafruit SD shields and modules: pin 10
+// Sparkfun SD shield: pin 8
+// MKRZero SD: SDCARD_SS_PIN
+const int chipSelect = 10;
 String VERSION = "V0.1.0 ALPHA";
 TMRpcm audio;
-int fileNumber = 0;
-String filePrefixname = "antwort";
-int index = 0;
-String currentFileName = "";
-String extension = ".wav";
-const int recordLed = 2;
-const int sample_rate = 16000;
-const int mic_pin = A0;
-#define SD_CSPin 5
-// const int PHONE_BUTTON = A1;
-const int SPEAKER_PIN = 9;
-bool isRecording = false;
-int getCurrentIndex() {
-  return -1;
-}
+const int MIC_PIN = A0;
 
-char* toCharArray(String inputString) {
-    // Length (with one extra character for the null terminator)
-  int str_len = inputString.length() + 1; 
-  // Prepare the character Array (the buffer) 
-  char char_array[str_len];
-  inputString.toCharArray(char_array, str_len);
-  return char_array;
-}
-
-void startRecord() {
-  fileNumber = getCurrentIndex() + 1;
-  // TODO: Change index based on max file number (using regex)
-  currentFileName = ("%s%d%s", filePrefixname, fileNumber, extension);
-  // Start recording audio
-  audio.startRecording(toCharArray(currentFileName), sample_rate, mic_pin);
-  isRecording = true;
-  Serial.println("RECORD STARTING FOR FILE " + currentFileName);
-}
-
-
-void play() {
-  audio.play("welcome.wav", 0);
-}
-
-void endRecord() {
-  audio.stopRecording(toCharArray(currentFileName));
-  Serial.println("RECORD FOR FILE " + currentFileName + " FINISHED");
-  isRecording = false;
-}
-
-
-void phoneBeep() {
-  // vol.tone(SPEAKER_PIN ,425, 40);
-  audio.stopPlayback();
-  audio.play("rufzeichen.wav");
-  delay(1000);
-  audio.stopPlayback();
-}
-
-void sdCardConnectFeedback() {
-  analogWrite(LED_BUILTIN, HIGH);
-  delay(100);
-  analogWrite(LED_BUILTIN, LOW);
-  delay(100);
-}
-
-
-void sdCardConnectedFeedback() {
-  for(int i = 0; i < 3; i++) {
-    analogWrite(LED_BUILTIN, HIGH);
-    delay(500);
-    analogWrite(LED_BUILTIN, LOW);
-    delay(500);
-  }
-}
 
 void setup() {
-  pinMode(SPEAKER_PIN, OUTPUT);
-  pinMode(A0, INPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
+  // Open serial communications and wait for port to open:
   Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
   Serial.println("Hochzeitsanruf " + VERSION + " has started.");
-  pinMode(10, OUTPUT); // change this to 53 on a mega  // don't follow this!!
-  digitalWrite(10, HIGH); // Add this line
-  // Set pin Modes
-  // pinMode(mic_pin, INPUT);
-  // pinMode(recordLed, OUTPUT);
-  // Connect to sd card
-  Serial.println("loading... SD card");
-  if (!SD.begin(10)) {
-    Serial.println("An Error has occurred while mounting SD");
-    sdCardConnectFeedback();
+  Serial.println("© STARKLICHT UG - ALL RIGHTS RESERVED.");
+
+
+  Serial.print("\nInitializing SD card...");
+
+  // we'll use the initialization code from the utility libraries
+  // since we're just testing if the card is working!
+  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+    Serial.println("initialization failed. Things to check:");
+    Serial.println("* is a card inserted?");
+    Serial.println("* is your wiring correct?");
+    Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    while (1);
+  } else {
+    Serial.println("Wiring is correct and a card is present.");
   }
-  // Wait to connect to SD Card...
-  while (!SD.begin(10)) {
-    Serial.print(".");
-    delay(500);
-    sdCardConnectFeedback();
+
+  // print the type of card
+  Serial.println();
+  Serial.print("Card type:         ");
+  switch (card.type()) {
+    case SD_CARD_TYPE_SD1:
+      Serial.println("SD1");
+      break;
+    case SD_CARD_TYPE_SD2:
+      Serial.println("SD2");
+      break;
+    case SD_CARD_TYPE_SDHC:
+      Serial.println("SDHC");
+      break;
+    default:
+      Serial.println("Unknown");
   }
-  sdCardConnectedFeedback();
-  Serial.println("Successfully connected to SD Card!");
-  audio.speakerPin = SPEAKER_PIN;
-}
 
+  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
+  if (!volume.init(card)) {
+    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+    while (1);
+  }
 
+  Serial.print("Clusters:          ");
+  Serial.println(volume.clusterCount());
+  Serial.print("Blocks x Cluster:  ");
+  Serial.println(volume.blocksPerCluster());
 
-void loop() {
-  tone(SPEAKER_PIN, 400);
-  delay(1000);
-  noTone(SPEAKER_PIN);
+  Serial.print("Total Blocks:      ");
+  Serial.println(volume.blocksPerCluster() * volume.clusterCount());
+  Serial.println();
 
-  Serial.println("RECORDING A FILE");
+  // print the type and size of the first FAT-type volume
+  uint32_t volumesize;
+  Serial.print("Volume type is:    FAT");
+  Serial.println(volume.fatType(), DEC);
+
+  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+  volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
+  Serial.print("Volume size (Kb):  ");
+  Serial.println(volumesize);
+  Serial.print("Volume size (Mb):  ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+  Serial.print("Volume size (Gb):  ");
+  Serial.println((float)volumesize / 1024.0);
+
+  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+  root.openRoot(volume);
+
+  // list all files in the card with date and size
+  root.ls(LS_R | LS_DATE | LS_SIZE);
+  // Set sd card pin of audio
+  audio.CSPin = chipSelect;
+
+  Serial.println("SYSTEM IS RUNNING. STARTING APP LOGIC");
+
+  Serial.println("Recording...");
+
   audio.startRecording("glockenspiel.wav", 16000, A0);
   delay(4000);
   audio.stopRecording("glockenspiel.wav");
-  while(true) {
-    //
-    sdCardConnectedFeedback();
-  }
-  /* phoneBeep();
-  audio.stopPlayback();
-  Serial.println("Playing a Sound! Test...");
-
-  audio.play("welcome.wav");
+  Serial.println("Waiting for a second...");
   delay(1000);
-  audio.stopPlayback();
-  Serial.println("Sound has played now");
-  delay(500);
-  Serial.println("RECORDING A FILE");
-  audio.startRecording("glockenspiel.wav", 16000, A0);
+  Serial.println("Recording finished!");
+  Serial.println("------------");
 
-  delay(2000);
-  audio.stopRecording("glockenspiel.wav");
-  Serial.println("RECORD FINISHED!");
-  delay(100);
-  audio.play("glockenspiel.wav");
-  delay(2000); */
+  // Print files again
+  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+  root.openRoot(volume);
 
-  // We should test this logic at STARKLICHT HQ tomorrow
-  // Tick button 
-  // Step 1: Wait, until long press has started (user takes phone)
-  /* if(analogRead(PHONE_BUTTON) == HIGH) {
-      // Step 2: First, play greeting
-      Serial.println("Playing a Sound! Test...");
-      audio.play(defaultFile);
-      delay(2000);
-      Serial.println("Sound has played now for 2 Seconds.");
-      // Step 3: After this, record new file
-      //startRecord();
-      //delay(200);
-  } else if(isRecording) {
-    endRecord();
-    delay(200);
-  } */
+  // list all files in the card with date and size
+  root.ls(LS_R | LS_DATE | LS_SIZE);
+}
+
+void loop(void) {
 }
