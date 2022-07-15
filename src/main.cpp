@@ -24,39 +24,51 @@ Running the Arduino from a battery or filtered power supply will reduce noise.
 //Uncomment this, the include above and in pcmConfig.h if using SdFat library
 SdFat SD;
 
-#define SD_ChipSelectPin 10  //example uses hardware SS pin 53 on Mega2560
 //#define SD_ChipSelectPin 4  //using digital pin 4 on arduino nano 328, can use other pins
-const String VERSION = "HOCHZEITSANRUF V0.1.0 ALPHA";
 TMRpcm audio;
-int filenameDigits = 4;
-int file_number = 0;
-char filePrefixname[8] = "antwort-";
-char exten[4] = ".wav";
-char versionString[4] = "0000";
+
+// Settings
+#define SD_ChipSelectPin 10
+const String VERSION = "HOCHZEITSANRUF V0.1.0 ALPHA";
+const int FILENAME_DIGITS = 4;
+const char FILE_PREFIXNAME[7] = "answer-";
+const char EXTENSION[4] = ".wav";
+char GREETING_FILE[20] = "greeting.wav";
+const int RECORD_BUTTON = 2; // Not used right now
+const int PHONE_SENSOR = 3;
+const int RECORD_LED = 4;
+const int SPEAKER_PIN = 9;
+const int MIC_PIN = A0;
+
+int file_number = -1;
+char versionString[FILENAME_DIGITS] = "0000";
 char currentFilename[50] = "";
-char welcome[20] = "greeting.wav";
-const int recordLed = 2;
-const int mic_pin = A0;
+
 const int sample_rate = 16000;
 int currentFile = 0;
 int abortedRecording = 0;
 
-const int RECORD_BUTTON = 2;
-const int PHONE_SENSOR = 3;
 int isRecording = 0;
 
 void updateFileNumber () {
   // New Number
   // Let's start a record (new file, etc...)
   
-  memcpy(currentFilename, filePrefixname, sizeof(filePrefixname));
-  versionString[0] = '0' + (file_number/1000);   // thousand digit
-  versionString[1] = '0' + ((file_number/100)%10);  // hundreds digit
-  versionString[2] = '0' + ((file_number/10)%10);   // tens digit
-  versionString[3] = '0' + (file_number%10);        // ones digit
-  memcpy(currentFilename + sizeof(filePrefixname), versionString, filenameDigits);
+  memcpy(currentFilename, FILE_PREFIXNAME, sizeof(FILE_PREFIXNAME));
+  // Building the version string now.
+  for(int i = 0; i < FILENAME_DIGITS; i++) {
+    int inverse = FILENAME_DIGITS - i - 1;
+    int divisor = round(pow(10, inverse));
+    if(i == 0) {
+      versionString[i] = '0' + (file_number / divisor);
+    } else {
+      versionString[i] = '0' + ((file_number / divisor) % 10);
+    }
+  }
+
+  memcpy(currentFilename + sizeof(FILE_PREFIXNAME), versionString, FILENAME_DIGITS);
   
-  memcpy(currentFilename + sizeof(filePrefixname) + filenameDigits, ".wav", 4);
+  memcpy(currentFilename + sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS, ".wav", 4);
 }
 
 void userAcceptsPhoneCallback() {
@@ -66,8 +78,8 @@ void userAcceptsPhoneCallback() {
   Serial.println("HANDLER: User took the phone");
   
   Serial.print("Playing greeting file: ");
-  Serial.println(welcome);
-  audio.play(welcome);
+  Serial.println(GREETING_FILE);
+  audio.play(GREETING_FILE);
   abortedRecording = 0;
   while(audio.isPlaying()) {
     Serial.print(".");
@@ -87,8 +99,8 @@ void userAcceptsPhoneCallback() {
   updateFileNumber();
   Serial.print("# REC File ");
   Serial.println(currentFilename);
-
-  audio.startRecording(currentFilename, sample_rate, mic_pin);
+  audio.startRecording(currentFilename, sample_rate, MIC_PIN);
+  digitalWrite(RECORD_LED, HIGH);
 }
 
 void userHangsUpPhoneCallback() {
@@ -103,6 +115,7 @@ void userHangsUpPhoneCallback() {
   Serial.print("# STOP REC FILE ");
   Serial.println(currentFilename);
   audio.stopRecording(currentFilename);
+  digitalWrite(RECORD_LED, LOW);
 }
 
 void phoneChangeCallback() {
@@ -146,17 +159,17 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
       Serial.println(fileName);
       bool matchesString = true;
       for(int i = 0; i < sizeof(fileName); i++) {
-          if(i < sizeof(filePrefixname)) {
-            if(i < sizeof(filePrefixname) && fileName[i] != filePrefixname[i]) {
+          if(i < sizeof(FILE_PREFIXNAME)) {
+            if(i < sizeof(FILE_PREFIXNAME) && fileName[i] != FILE_PREFIXNAME[i]) {
               matchesString = false;
             }
           }
       }
       // Get Version
-      int number = 0;
+      int number = -1;
       if(matchesString) {
-        for(int i = sizeof(filePrefixname); i < sizeof(filePrefixname) + filenameDigits; i++) {
-          int factorial = filenameDigits - (i - sizeof(filePrefixname) + 1);
+        for(int i = sizeof(FILE_PREFIXNAME); i < sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS; i++) {
+          int factorial = FILENAME_DIGITS - (i - sizeof(FILE_PREFIXNAME) + 1);
           int factor = fileName[i] - '0';
           int add = factor * round(pow(10, factorial));
           number += add;
@@ -164,7 +177,7 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
       }
 
       if(number > file_number) {
-        file_number = number;
+        file_number = number + 1;
       }
 
       if (file.isDir()) {
@@ -180,35 +193,12 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
   Serial.println(file_number);
 }
 
-void recordNextFile() {
-    Serial.println("####################################################################################");
-    char fileSlNum[20] = "";
-    itoa(file_number, fileSlNum, 10);
-    char file_name[50] = "";
-    strcat(file_name, filePrefixname);
-    strcat(file_name, fileSlNum);
-    strcat(file_name, exten);
-    Serial.print("New File Name: ");
-    Serial.println(file_name);
-    digitalWrite(recordLed, HIGH);
-    audio.startRecording(file_name, sample_rate, mic_pin);
-    Serial.println("startRecording ");
-    // record audio for 2mins. means , in this loop process record 2mins of audio.
-    // if you need more time duration recording audio then
-    // pass higher value into the wait_min(int mins) function.
-    delay(10000);
-    digitalWrite(recordLed, LOW);
-    audio.stopRecording(file_name);
-    Serial.println("stopRecording");
-    file_number++;
-    Serial.println("####################################################################################");
-}
-
 
 void setup() {
   
-  audio.speakerPin = 11; //5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
+  audio.speakerPin = SPEAKER_PIN; //5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
   pinMode(12,OUTPUT);  //Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
+  pinMode(RECORD_LED, OUTPUT);
   
   Serial.begin(9600);
   
