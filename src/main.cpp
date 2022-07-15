@@ -1,144 +1,98 @@
 /*
-  SD card test
-
-  This example shows how use the utility libraries on which the'
-  SD library is based in order to get info about your SD card.
-  Very useful for testing a card when you're not sure whether its working or not.
-
-  The circuit:
-    SD card attached to SPI bus as follows:
- ** MOSI - pin 11 on Arduino Uno/Duemilanove/Diecimila
- ** MISO - pin 12 on Arduino Uno/Duemilanove/Diecimila
- ** CLK - pin 13 on Arduino Uno/Duemilanove/Diecimila
- ** CS - depends on your SD card shield or module.
- Pin 4 used here for consistency with other Arduino examples
-
-
-  created  28 Mar 2011
-  by Limor Fried
-  modified 9 Apr 2012
-  by Tom Igoe
+   File Name: spy-recorder.ino
+   Created on: 7-Jan-2021
+   Author: Noyel Seth (noyelseth@gmail.com)
 */
-// include the SD library:
-#include <SPI.h>
+/*
+   Hardware Pinout Connection
+   Arduino Nano        SD Pin
+        5v ------------ VCC
+        GND ----------- GND
+        D10 ----------- CS
+        D11 ----------- MOSI
+        D12 ----------- MISO
+        D13 ----------- SCK
+  ________________________________________
+   Arduino Nano         MAX9814
+        3.3v ----------- VDD
+        GND ------------ GND
+        A0 -------------  Out
+  ________________________________________
+   Arduino Nano D2 pin user for Led to notify that record is in process.
+*/
+/*
+   use Link: https://www.arduino.cc/reference/en/libraries/tmrpcm/ TMRpcm library for recording audio using MAX9814
+   Recording a WAV file to an SD card is an advanced feature of the TMRpcm library so you must edit the library configuration file in order to use it.
+   It simply searches the file "pcmConfig.h" using File Explorer and disables a few lines of code (then saves it).
+    1. On Uno or non-mega boards uncomment the line #define buffSize 128
+    2. Also uncomment #define ENABLE_RECORDING and #define BLOCK_COUNT 10000UL
+*/
+#include <Arduino.h>
 #include <SD.h>
 #include <TMRpcm.h>
 
-// set up variables using the SD utility library functions:
-Sd2Card card;
-SdVolume volume;
-SdFile root;
-
-// change this to match your SD shield or module;
-// Arduino Ethernet shield: pin 4
-// Adafruit SD shields and modules: pin 10
-// Sparkfun SD shield: pin 8
-// MKRZero SD: SDCARD_SS_PIN
-const int chipSelect = 10;
-String VERSION = "V0.1.0 ALPHA";
+#include <SPI.h>
 TMRpcm audio;
-const int MIC_PIN = A0;
-
-
-void setup() {
-  // Open serial communications and wait for port to open:
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
+int file_number = 0;
+char filePrefixname[50] = "spy";
+char exten[10] = ".wav";
+const int recordLed = 2;
+const int mic_pin = A0;
+const int sample_rate = 16000;
+#define SD_CSPin 10
+// delay function for with serial log.
+void wait_min(int mins) {
+  int count = 0;
+  int secs = mins * 60;
+  while (1) {
+    Serial.print('.');
+    delay(1000);
+    count++;
+    if (count == secs) {
+      count = 0;
+      break;
+    }
   }
-  Serial.println("Hochzeitsanruf " + VERSION + " has started.");
-  Serial.println("© STARKLICHT UG - ALL RIGHTS RESERVED.");
-
-
-  Serial.print("\nInitializing SD card...");
-
-  // we'll use the initialization code from the utility libraries
-  // since we're just testing if the card is working!
-  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-    Serial.println("initialization failed. Things to check:");
-    Serial.println("* is a card inserted?");
-    Serial.println("* is your wiring correct?");
-    Serial.println("* did you change the chipSelect pin to match your shield or module?");
-    while (1);
-  } else {
-    Serial.println("Wiring is correct and a card is present.");
-  }
-
-  // print the type of card
   Serial.println();
-  Serial.print("Card type:         ");
-  switch (card.type()) {
-    case SD_CARD_TYPE_SD1:
-      Serial.println("SD1");
-      break;
-    case SD_CARD_TYPE_SD2:
-      Serial.println("SD2");
-      break;
-    case SD_CARD_TYPE_SDHC:
-      Serial.println("SDHC");
-      break;
-    default:
-      Serial.println("Unknown");
-  }
-
-  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
-  if (!volume.init(card)) {
-    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
-    while (1);
-  }
-
-  Serial.print("Clusters:          ");
-  Serial.println(volume.clusterCount());
-  Serial.print("Blocks x Cluster:  ");
-  Serial.println(volume.blocksPerCluster());
-
-  Serial.print("Total Blocks:      ");
-  Serial.println(volume.blocksPerCluster() * volume.clusterCount());
-  Serial.println();
-
-  // print the type and size of the first FAT-type volume
-  uint32_t volumesize;
-  Serial.print("Volume type is:    FAT");
-  Serial.println(volume.fatType(), DEC);
-
-  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-  volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
-  Serial.print("Volume size (Kb):  ");
-  Serial.println(volumesize);
-  Serial.print("Volume size (Mb):  ");
-  volumesize /= 1024;
-  Serial.println(volumesize);
-  Serial.print("Volume size (Gb):  ");
-  Serial.println((float)volumesize / 1024.0);
-
-  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
-  root.openRoot(volume);
-
-  // list all files in the card with date and size
-  root.ls(LS_R | LS_DATE | LS_SIZE);
-  // Set sd card pin of audio
-  audio.CSPin = chipSelect;
-
-  Serial.println("SYSTEM IS RUNNING. STARTING APP LOGIC");
-
-  Serial.println("Recording...");
-
-  audio.startRecording("glockenspiel.wav", 16000, A0);
-  delay(4000);
-  audio.stopRecording("glockenspiel.wav");
-  Serial.println("Waiting for a second...");
-  delay(1000);
-  Serial.println("Recording finished!");
-  Serial.println("------------");
-
-  // Print files again
-  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
-  root.openRoot(volume);
-
-  // list all files in the card with date and size
-  root.ls(LS_R | LS_DATE | LS_SIZE);
+  return ;
 }
-
-void loop(void) {
+void setup() {
+  // put your setup code here, to run once:
+  //initialises the serial connection between the arduino and any connected serial device(e.g. computer, phone, raspberry pi...)
+  Serial.begin(9600);
+  //Sets up the pins
+  pinMode(mic_pin, INPUT);
+  pinMode(recordLed, OUTPUT);
+  Serial.println("loading... SD card");
+  if (!SD.begin(SD_CSPin)) {
+    Serial.println("An Error has occurred while mounting SD");
+  }
+  while (!SD.begin(SD_CSPin)) {
+    Serial.print(".");
+    delay(500);
+  }
+  audio.CSPin = SD_CSPin;
+}
+void loop() {
+  Serial.println("####################################################################################");
+  char fileSlNum[20] = "";
+  itoa(file_number, fileSlNum, 10);
+  char file_name[50] = "";
+  strcat(file_name, filePrefixname);
+  strcat(file_name, fileSlNum);
+  strcat(file_name, exten);
+  Serial.print("New File Name: ");
+  Serial.println(file_name);
+  digitalWrite(recordLed, HIGH);
+  audio.startRecording(file_name, sample_rate, mic_pin);
+  Serial.println("startRecording ");
+  // record audio for 2mins. means , in this loop process record 2mins of audio.
+  // if you need more time duration recording audio then
+  // pass higher value into the wait_min(int mins) function.
+  wait_min(2);
+  digitalWrite(recordLed, LOW);
+  audio.stopRecording(file_name);
+  Serial.println("stopRecording");
+  file_number++;
+  Serial.println("####################################################################################");
 }
