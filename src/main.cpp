@@ -166,7 +166,7 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
           }
       }
       // Get Version
-      int number = -1;
+      int number = 0;
       if(matchesString) {
         for(int i = sizeof(FILE_PREFIXNAME); i < sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS; i++) {
           int factorial = FILENAME_DIGITS - (i - sizeof(FILE_PREFIXNAME) + 1);
@@ -177,7 +177,7 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
       }
 
       if(number > file_number) {
-        file_number = number + 1;
+        file_number = number;
       }
 
       if (file.isDir()) {
