@@ -44,7 +44,7 @@ int file_number = -1;
 char versionString[FILENAME_DIGITS] = "0000";
 char currentFilename[50] = "";
 
-const int sample_rate = 16000;
+const int sample_rate = 8000;
 int currentFile = 0;
 int abortedRecording = 0;
 
