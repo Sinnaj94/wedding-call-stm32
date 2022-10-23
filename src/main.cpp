@@ -21,7 +21,7 @@ Running the Arduino from a battery or filtered power supply will reduce noise.
 #include <SdFat.h>
 #include <SPI.h>
 #include <TMRpcm.h>
-//Uncomment this, the include above and in pcmConfig.h if using SdFat library
+// Uncomment this, the include above and in pcmConfig.h if using SdFat library
 SdFat SD;
 
 //#define SD_ChipSelectPin 4  //using digital pin 4 on arduino nano 328, can use other pins
@@ -50,50 +50,57 @@ int abortedRecording = 0;
 
 int isRecording = 0;
 
-void updateFileNumber () {
+void updateFileNumber()
+{
   // New Number
   // Let's start a record (new file, etc...)
-  
+
   memcpy(currentFilename, FILE_PREFIXNAME, sizeof(FILE_PREFIXNAME));
   // Building the version string now.
-  for(int i = 0; i < FILENAME_DIGITS; i++) {
+  for (int i = 0; i < FILENAME_DIGITS; i++)
+  {
     int inverse = FILENAME_DIGITS - i - 1;
     int divisor = round(pow(10, inverse));
-    if(i == 0) {
+    if (i == 0)
+    {
       versionString[i] = '0' + (file_number / divisor);
-    } else {
+    }
+    else
+    {
       versionString[i] = '0' + ((file_number / divisor) % 10);
     }
   }
 
   memcpy(currentFilename + sizeof(FILE_PREFIXNAME), versionString, FILENAME_DIGITS);
-  
+
   memcpy(currentFilename + sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS, ".wav", 4);
 }
 
-void userAcceptsPhoneCallback() {
+void userAcceptsPhoneCallback()
+{
   Serial.println("----------------\n\n");
   isRecording = 1;
   // Play audio
   Serial.println("HANDLER: User took the phone");
-  
+
   Serial.print("Playing greeting file: ");
   Serial.println(GREETING_FILE);
   audio.play(GREETING_FILE);
   abortedRecording = 0;
-  while(audio.isPlaying()) {
+  while (audio.isPlaying())
+  {
     Serial.print(".");
     delay(100);
   }
   Serial.println("");
-  if(abortedRecording == 1) {
+  if (abortedRecording == 1)
+  {
     Serial.println("Aborted before recording. No recording file. Stopping playback");
     return;
   }
   Serial.println("Finished playing greeting File!\n");
   // Play beep?
   delay(100);
-
 
   file_number++;
   updateFileNumber();
@@ -103,11 +110,13 @@ void userAcceptsPhoneCallback() {
   digitalWrite(RECORD_LED, HIGH);
 }
 
-void userHangsUpPhoneCallback() {
+void userHangsUpPhoneCallback()
+{
   Serial.println("----------------\n\n");
   isRecording = 0;
   Serial.println("HANDLER: User hung up");
-  if(audio.isPlaying()) {
+  if (audio.isPlaying())
+  {
     audio.stopPlayback();
     abortedRecording = 1;
     return;
@@ -118,57 +127,72 @@ void userHangsUpPhoneCallback() {
   digitalWrite(RECORD_LED, LOW);
 }
 
-void phoneChangeCallback() {
+void phoneChangeCallback()
+{
   int value = digitalRead(PHONE_SENSOR);
-  if((value == HIGH) && (isRecording == 0)) {
+  if ((value == HIGH) && (isRecording == 0))
+  {
     userAcceptsPhoneCallback();
-  } else if((value == LOW) && (isRecording == 1)) {
+  }
+  else if ((value == LOW) && (isRecording == 1))
+  {
     userHangsUpPhoneCallback();
   }
 }
 
-
-void wait_min(int mins) {
+void wait_min(int mins)
+{
   int count = 0;
   int secs = mins * 60;
-  while (1) {
+  while (1)
+  {
     Serial.print('.');
     delay(1000);
     count++;
-    if (count == secs) {
+    if (count == secs)
+    {
       count = 0;
       break;
     }
   }
   Serial.println();
-  return ;
+  return;
 }
 
-
-void displayDirectoryContent(File& aDirectory, byte tabulation) {
+void displayDirectoryContent(File &aDirectory, byte tabulation)
+{
   File file;
   char fileName[20];
 
-  if (!aDirectory.isDir()) return;
+  if (!aDirectory.isDir())
+    return;
   aDirectory.rewind();
 
-  while (file.openNext(&aDirectory, O_READ)) {
-    if (!file.isHidden()) {
+  while (file.openNext(&aDirectory, O_READ))
+  {
+    if (!file.isHidden())
+    {
       file.getName(fileName, sizeof(fileName));
-      for (uint8_t i = 0; i < tabulation; i++) Serial.write('\t');
+      for (uint8_t i = 0; i < tabulation; i++)
+        Serial.write('\t');
       Serial.println(fileName);
       bool matchesString = true;
-      for(int i = 0; i < sizeof(fileName); i++) {
-          if(i < sizeof(FILE_PREFIXNAME)) {
-            if(i < sizeof(FILE_PREFIXNAME) && fileName[i] != FILE_PREFIXNAME[i]) {
-              matchesString = false;
-            }
+      for (int i = 0; i < sizeof(fileName); i++)
+      {
+        if (i < sizeof(FILE_PREFIXNAME))
+        {
+          if (i < sizeof(FILE_PREFIXNAME) && fileName[i] != FILE_PREFIXNAME[i])
+          {
+            matchesString = false;
           }
+        }
       }
       // Get Version
       int number = 0;
-      if(matchesString) {
-        for(int i = sizeof(FILE_PREFIXNAME); i < sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS; i++) {
+      if (matchesString)
+      {
+        for (int i = sizeof(FILE_PREFIXNAME); i < sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS; i++)
+        {
           int factorial = FILENAME_DIGITS - (i - sizeof(FILE_PREFIXNAME) + 1);
           int factor = fileName[i] - '0';
           int add = factor * round(pow(10, factorial));
@@ -176,15 +200,21 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
         }
       }
 
-      if(number > file_number) {
+      if (number > file_number)
+      {
         file_number = number;
       }
 
-      if (file.isDir()) {
+      if (file.isDir())
+      {
         Serial.println(F("/"));
         displayDirectoryContent(file, tabulation + 1);
-      } else {
-        Serial.write('\t'); Serial.print(file.fileSize()); Serial.println(F(" bytes"));
+      }
+      else
+      {
+        Serial.write('\t');
+        Serial.print(file.fileSize());
+        Serial.println(F(" bytes"));
       }
     }
     file.close();
@@ -193,27 +223,37 @@ void displayDirectoryContent(File& aDirectory, byte tabulation) {
   Serial.println(file_number);
 }
 
-
-void setup() {
-  
-  audio.speakerPin = SPEAKER_PIN; //5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
-  pinMode(12,OUTPUT);  //Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
+void setup()
+{
+  // Short blink message (3 times on, 3 times off)
+  for (int i = 0; i < 6; i++)
+  {
+    digitalWrite(LED_BUILTIN, i % 2 == 0 ? HIGH : LOW);
+    delay(100);
+  }
+  audio.speakerPin = SPEAKER_PIN; // 5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
+  pinMode(12, OUTPUT);            // Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
   pinMode(RECORD_LED, OUTPUT);
-  
+
   Serial.begin(9600);
-  
-  if (!SD.begin(SD_ChipSelectPin)) {
+
+  if (!SD.begin(SD_ChipSelectPin))
+  {
     Serial.println("SD FAILED");
+    Serial.println("Please insert an SD and try again");
     return;
-  }else{
-    Serial.println("SD OK"); 
+  }
+  else
+  {
+    Serial.println("SD OK");
   }
   Serial.println(("%s has started.", VERSION));
   // The audio library needs to know which CS pin to use for recording
   audio.CSPin = SD_ChipSelectPin;
   // Now print files
   File dir;
-  if(!dir.open("/")) {
+  if (!dir.open("/"))
+  {
     Serial.println("SD Card might be corrupted.");
   }
   displayDirectoryContent(dir, 0);
@@ -223,7 +263,7 @@ void setup() {
   // TODO: Maybe make an own record file?
 }
 
-
-void loop() {
+void loop()
+{
   // Empty, because we use handlers
 }
