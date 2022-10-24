@@ -4,8 +4,8 @@ After that, the user can record an audio that the marriage couple can enjoy late
 ## Install
 1. Install platform.io.
 2. Install libraries using `pio lib install`
-3. Under `starklicht/wedding-call/.pio/libdeps/nanoatmega328/PCM/pcmConfig.h`, please comment out line `#define ENABLE_RECORDING`
-4. Under `starklicht/wedding-call/.pio/libdeps/nanoatmega328/PCM/pcmConfig.h`, please comment out line `#define SD_FAT`
+3. Under [./.pio/libdeps/nanoatmega328/PCM/pcmConfig.h](./.pio/libdeps/nanoatmega328/PCM/pcmConfig.h), please comment out line `#define ENABLE_RECORDING`
+4. Under [./.pio/libdeps/nanoatmega328/PCM/pcmConfig.h](./.pio/libdeps/nanoatmega328/PCM/pcmConfig.h), please comment out line `#define SD_FAT`
 5. Get your wiring done (Microphone, SD Card Reader, Buttons, Speaker)
 6. Run via `pio run` (maybe give additional settings)
 ## Settings
