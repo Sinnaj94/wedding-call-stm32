@@ -23,7 +23,7 @@ const int PHONE_SENSOR = 3; // phone sensor (when user lifts phone)
 const int RECORD_LED = 4; // record led (goes on when recording)
 const int SPEAKER_PIN = 9; // speaker pin 
 const int MIC_PIN = A0; // microphone pin
-const bool INVERT_RECORD_BUTTON = true; // If INVERT_RECORD_BUTTON is set, record button will be inverted
+const bool INVERT_PHONE_SENSOR = true; // If INVERT_RECORD_BUTTON is set, record button will be inverted
 ```
 ## Connection
 ### SD-CARD
