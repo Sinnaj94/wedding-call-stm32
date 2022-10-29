@@ -31,15 +31,15 @@ TMRpcm audio;
 #define SD_ChipSelectPin 10
 const String VERSION = "HOCHZEITSANRUF V0.1.0 ALPHA";
 const int FILENAME_DIGITS = 4;
-const char FILE_PREFIXNAME[7] = "answer-";
-const char EXTENSION[4] = ".wav";
+const char FILE_PREFIXNAME[8] = "answer-";
+const char EXTENSION[5] = ".wav";
 char GREETING_FILE[20] = "greeting.wav";
 const int RECORD_BUTTON = 2; // Not used right now
 const int PHONE_SENSOR = 3;
 const int RECORD_LED = 4;
 const int SPEAKER_PIN = 9;
 const int MIC_PIN = A0;
-
+const bool INVERT_PHONE_SENSOR = true;
 int file_number = -1;
 char versionString[FILENAME_DIGITS] = "0000";
 char currentFilename[50] = "";
@@ -130,6 +130,17 @@ void userHangsUpPhoneCallback()
 void phoneChangeCallback()
 {
   int value = digitalRead(PHONE_SENSOR);
+  if (INVERT_PHONE_SENSOR)
+  {
+    if (value == HIGH)
+    {
+      value = LOW;
+    }
+    else if (value == LOW)
+    {
+      value = HIGH;
+    }
+  }
   if ((value == HIGH) && (isRecording == 0))
   {
     userAcceptsPhoneCallback();
