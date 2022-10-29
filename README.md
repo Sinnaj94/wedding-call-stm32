@@ -46,6 +46,6 @@ You have to convert the greeting to an arduino compatible audio file. These are 
 2. Change audio Channel _ MONO
 3. Change bit resolution - 8 Bit
 4. Show advanced options - PCM Format- PCM Unsigned 8-bit
-You can convert it on [https://audio.online-convert.com/convert-to-wav](https://audio.online-convert.com/convert-to-wav)
+You can convert it on [https://audio.online-convert.com/convert-to-wav](https://audio.online-convert.com/convert-to-wav).
 ## Copyright
 All rights reserved, Starklicht UG, Wolfenbüttel.
