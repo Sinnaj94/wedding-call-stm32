@@ -23,7 +23,29 @@ const int PHONE_SENSOR = 3; // phone sensor (when user lifts phone)
 const int RECORD_LED = 4; // record led (goes on when recording)
 const int SPEAKER_PIN = 9; // speaker pin 
 const int MIC_PIN = A0; // microphone pin
-``` 
-
+```
+## Connection
+### SD-CARD
+Connect the SD Card reader to the following ports:
+```
+CS      D10
+MOSI    D11
+MISO    D12
+SCK     D13
+```
+### SOUND
+```
+LED     D4
+BUTTON  D3
+MIC     A0
+SPEAKER D9
+```
+## Audio Format
+You have to convert the greeting to an arduino compatible audio file. These are the settings:
+1. Change Sampling Rate – 16000Hz or (16KHz)
+2. Change audio Channel _ MONO
+3. Change bit resolution - 8 Bit
+4. Show advanced options - PCM Format- PCM Unsigned 8-bit
+You can convert it on [https://audio.online-convert.com/convert-to-wav](https://audio.online-convert.com/convert-to-wav)
 ## Copyright
 All rights reserved, Starklicht UG, Wolfenbüttel.
