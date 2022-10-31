@@ -42,12 +42,13 @@ const bool INVERT_PHONE_SENSOR = true;
 int file_number = -1;
 char versionString[FILENAME_DIGITS] = "0000";
 char currentFilename[50] = "";
-int isPlayingLastMessage = 0;
-const int sample_rate = 16000;
+const int sample_rate = 12000;
 int currentFile = 0;
 int abortedRecording = 0;
 int isRecording = 0;
-
+int willPlayLastMessage = 0;
+int lastMessageTaken = 0;
+int blinkState = 1;
 void updateFileNumber()
 {
   // New Number
@@ -76,12 +77,16 @@ void updateFileNumber()
 
 void userAcceptsPhoneCallback()
 {
-  // Set audio to phone speaker
-  Serial.println("----------------\n\n");
   isRecording = 1;
   // Play audio
   Serial.println("HANDLER: User took the phone");
-  Serial.println("Playback stopped.");
+  if (willPlayLastMessage == 1)
+  {
+    lastMessageTaken = 1;
+    Serial.println("Play last message now, because it was requested");
+    audio.play(currentFilename);
+    return;
+  }
   Serial.print("Playing greeting file: ");
   Serial.println(GREETING_FILE);
   audio.play(GREETING_FILE);
@@ -106,7 +111,6 @@ void userAcceptsPhoneCallback()
   Serial.print("# REC File ");
   Serial.println(currentFilename);
   audio.startRecording(currentFilename, sample_rate, MIC_PIN);
-  digitalWrite(RECORD_LED, HIGH);
 }
 
 void userHangsUpPhoneCallback()
@@ -114,6 +118,17 @@ void userHangsUpPhoneCallback()
   Serial.println("----------------\n\n");
   isRecording = 0;
   Serial.println("HANDLER: User hung up");
+  if (willPlayLastMessage == 1)
+  {
+    lastMessageTaken = 0;
+    Serial.println("Was playing last message. Stopping.");
+    willPlayLastMessage = 0;
+    if (audio.isPlaying())
+    {
+      audio.stopPlayback();
+    }
+    return;
+  }
   if (audio.isPlaying())
   {
     audio.stopPlayback();
@@ -123,7 +138,6 @@ void userHangsUpPhoneCallback()
   Serial.print("# STOP REC FILE ");
   Serial.println(currentFilename);
   audio.stopRecording(currentFilename);
-  digitalWrite(RECORD_LED, LOW);
 }
 
 void phoneChangeCallback()
@@ -153,14 +167,7 @@ void phoneChangeCallback()
 void speedDialCallback()
 {
   Serial.println("Speedial callback is called");
-  if (isRecording == 1)
-  {
-    Serial.println("Not playing because it is recording.");
-    return;
-  }
-  Serial.println("Playing last message...");
-  Serial.println(currentFilename);
-  audio.play(currentFilename);
+  willPlayLastMessage = 1;
 }
 
 void wait_min(int mins)
@@ -283,8 +290,8 @@ void setup()
   displayDirectoryContent(dir, 0);
   updateFileNumber();
   // Connect all events...
-  // pinMode(SPEED_DIAL_SENSOR, INPUT_PULLUP);
-  // attachInterrupt(digitalPinToInterrupt(INPUT_PULLUP), speedDialCallback, FALLING);
+  pinMode(SPEED_DIAL_SENSOR, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(SPEED_DIAL_SENSOR), speedDialCallback, FALLING);
   pinMode(PHONE_SENSOR, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PHONE_SENSOR), phoneChangeCallback, CHANGE);
   // TODO: Maybe make an own record file?
@@ -292,5 +299,33 @@ void setup()
 
 void loop()
 {
-  // Empty, because we use handlers
+  if (willPlayLastMessage == 1)
+  {
+    int delay = 1000;
+    if (lastMessageTaken == 1)
+    {
+      delay = 500;
+      if (!audio.isPlaying())
+      {
+        digitalWrite(RECORD_LED, LOW);
+        return;
+      }
+    }
+    if (millis() % delay > delay / 2)
+    {
+      digitalWrite(RECORD_LED, HIGH);
+    }
+    else
+    {
+      digitalWrite(RECORD_LED, LOW);
+    }
+  }
+  else if (isRecording == 1)
+  {
+    digitalWrite(RECORD_LED, HIGH);
+  }
+  else
+  {
+    digitalWrite(RECORD_LED, LOW);
+  }
 }
