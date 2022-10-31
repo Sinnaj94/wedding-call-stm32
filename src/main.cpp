@@ -27,6 +27,7 @@ SdFat SD;
 TMRpcm audio;
 
 // Settings
+#define DEBUG false
 #define SD_ChipSelectPin 10
 const String VERSION = "HOCHZEITSANRUF V0.1.0 ALPHA";
 const int FILENAME_DIGITS = 4;
@@ -75,53 +76,90 @@ void updateFileNumber()
   memcpy(currentFilename + sizeof(FILE_PREFIXNAME) + FILENAME_DIGITS, ".wav", 4);
 }
 
+void debug(const String &s)
+{
+  if (!DEBUG)
+  {
+    return;
+  }
+  Serial.print(s);
+}
+
+void debugln(const String &s)
+{
+  if (!DEBUG)
+  {
+    return;
+  }
+  Serial.println(s);
+}
+
+void debugwrite(int a)
+{
+  if (!DEBUG)
+  {
+    return;
+  }
+  Serial.write(a);
+}
+
+void debugln()
+{
+  if (!DEBUG)
+  {
+    return;
+  }
+
+  Serial.println();
+}
+
 void userAcceptsPhoneCallback()
 {
   isRecording = 1;
   // Play audio
-  Serial.println("HANDLER: User took the phone");
+  debugln("HANDLER: User took the phone");
   if (willPlayLastMessage == 1)
   {
     lastMessageTaken = 1;
-    Serial.println("Play last message now, because it was requested");
+    debugln("Play last message now, because it was requested");
     audio.play(currentFilename);
     return;
   }
-  Serial.print("Playing greeting file: ");
-  Serial.println(GREETING_FILE);
+  debug("Playing greeting file: ");
+  debugln(GREETING_FILE);
   audio.play(GREETING_FILE);
   abortedRecording = 0;
   while (audio.isPlaying())
   {
-    Serial.print(".");
-    delay(100);
+    debug(".");
+    delay(5);
   }
-  Serial.println("");
+  debugln("");
   if (abortedRecording == 1)
   {
-    Serial.println("Aborted before recording. No recording file. Stopping playback");
+    debugln("Aborted before recording. No recording file. Stopping playback");
     return;
   }
-  Serial.println("Finished playing greeting File!\n");
+  debugln("Finished playing greeting File!\n");
   // Play beep?
   delay(100);
 
   file_number++;
   updateFileNumber();
-  Serial.print("# REC File ");
-  Serial.println(currentFilename);
+  debug("# REC File ");
+  debugln(currentFilename);
   audio.startRecording(currentFilename, sample_rate, MIC_PIN);
 }
 
 void userHangsUpPhoneCallback()
 {
-  Serial.println("----------------\n\n");
+  debugln("----------------\n\n");
   isRecording = 0;
-  Serial.println("HANDLER: User hung up");
+  debugln("HANDLER: User hung up");
   if (willPlayLastMessage == 1)
   {
     lastMessageTaken = 0;
-    Serial.println("Was playing last message. Stopping.");
+    debugln("Was playing last message. Stopping.");
     willPlayLastMessage = 0;
     if (audio.isPlaying())
     {
@@ -135,8 +173,8 @@ void userHangsUpPhoneCallback()
     abortedRecording = 1;
     return;
   }
-  Serial.print("# STOP REC FILE ");
-  Serial.println(currentFilename);
+  debug("# STOP REC FILE ");
+  debugln(currentFilename);
   audio.stopRecording(currentFilename);
 }
 
@@ -166,7 +204,13 @@ void phoneChangeCallback()
 
 void speedDialCallback()
 {
-  Serial.println("Speedial callback is called");
+  debugln("Speedial callback is called");
+  if (isRecording)
+  {
+    debugln("Can not use speeddial while recording");
+    return;
+  }
+  debugln("Will play message on next");
   willPlayLastMessage = 1;
 }
 
@@ -176,7 +220,6 @@ void wait_min(int mins)
   int secs = mins * 60;
   while (1)
   {
-    Serial.print('.');
     delay(1000);
     count++;
     if (count == secs)
@@ -185,7 +228,7 @@ void wait_min(int mins)
       break;
     }
   }
-  Serial.println();
+  debugln();
   return;
 }
 
@@ -204,8 +247,8 @@ void displayDirectoryContent(File &aDirectory, byte tabulation)
     {
       file.getName(fileName, sizeof(fileName));
       for (uint8_t i = 0; i < tabulation; i++)
-        Serial.write('\t');
-      Serial.println(fileName);
+        debugwrite('\t');
+      debugln(fileName);
       bool matchesString = true;
       for (int i = 0; i < sizeof(fileName); i++)
       {
@@ -237,20 +280,17 @@ void displayDirectoryContent(File &aDirectory, byte tabulation)
 
       if (file.isDir())
       {
-        Serial.println(F("/"));
+        debugln(F("/"));
         displayDirectoryContent(file, tabulation + 1);
       }
       else
       {
-        Serial.write('\t');
-        Serial.print(file.fileSize());
-        Serial.println(F(" bytes"));
+        debugwrite('\t');
+        debugln(F(" bytes"));
       }
     }
     file.close();
   }
-  Serial.println("CURRENT NUMBER: ");
-  Serial.println(file_number);
 }
 
 void setup()
@@ -265,27 +305,29 @@ void setup()
   audio.quality(1);
   pinMode(12, OUTPUT); // Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
   pinMode(RECORD_LED, OUTPUT);
-
-  Serial.begin(9600);
+  if (DEBUG)
+  {
+    Serial.begin(9600);
+  }
 
   if (!SD.begin(SD_ChipSelectPin))
   {
-    Serial.println("SD FAILED");
-    Serial.println("Please insert an SD and try again");
+    debugln("SD FAILED");
+    debugln("Please insert an SD and try again");
     return;
   }
   else
   {
-    Serial.println("SD OK");
+    debugln("SD OK");
   }
-  Serial.println(("%s has started.", VERSION));
+  debugln(("%s has started.", VERSION));
   // The audio library needs to know which CS pin to use for recording
   audio.CSPin = SD_ChipSelectPin;
   // Now print files
   File dir;
   if (!dir.open("/"))
   {
-    Serial.println("SD Card might be corrupted.");
+    debugln("SD Card might be corrupted.");
   }
   displayDirectoryContent(dir, 0);
   updateFileNumber();
