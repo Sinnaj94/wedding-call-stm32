@@ -80,48 +80,39 @@ void userAcceptsPhoneCallback()
 {
   isRecording = 1;
   // Play audio
-  Serial.println("HANDLER: User took the phone");
   if (willPlayLastMessage == 1)
   {
     lastMessageTaken = 1;
-    Serial.println("Play last message now, because it was requested");
     audio.play(currentFilename);
     return;
   }
-  Serial.print("Playing greeting file: ");
-  Serial.println(GREETING_FILE);
   audio.play(GREETING_FILE);
   abortedRecording = 0;
   while (audio.isPlaying())
   {
-    Serial.print(".");
-    delay(5);
+    // Do nothing.
   }
-  Serial.println("");
   if (abortedRecording == 1)
   {
-    Serial.println("Aborted before recording. No recording file. Stopping playback");
     return;
   }
-  Serial.println("Finished playing greeting File!\n");
   // Play beep?
 
   file_number++;
   updateFileNumber();
-  Serial.print("# REC File ");
-  Serial.println(currentFilename);
+  if (audio.isPlaying())
+  {
+    audio.stopPlayback();
+  }
   audio.startRecording(currentFilename, sample_rate, MIC_PIN);
 }
 
 void userHangsUpPhoneCallback()
 {
-  Serial.println("----------------\n\n");
   isRecording = 0;
-  Serial.println("HANDLER: User hung up");
   if (willPlayLastMessage == 1)
   {
     lastMessageTaken = 0;
-    Serial.println("Was playing last message. Stopping.");
     willPlayLastMessage = 0;
     if (audio.isPlaying())
     {
@@ -135,8 +126,6 @@ void userHangsUpPhoneCallback()
     abortedRecording = 1;
     return;
   }
-  Serial.print("# STOP REC FILE ");
-  Serial.println(currentFilename);
   audio.stopRecording(currentFilename);
 }
 
@@ -166,13 +155,10 @@ void phoneChangeCallback()
 
 void speedDialCallback()
 {
-  Serial.println("Speedial callback is called");
   if (isRecording)
   {
-    Serial.println("Can not use speeddial while recording");
     return;
   }
-  Serial.println("Will play message on next");
   willPlayLastMessage = 1;
 }
 
@@ -190,7 +176,6 @@ void wait_min(int mins)
       break;
     }
   }
-  Serial.println();
   return;
 }
 
@@ -208,9 +193,6 @@ void displayDirectoryContent(File &aDirectory, byte tabulation)
     if (!file.isHidden())
     {
       file.getName(fileName, sizeof(fileName));
-      for (uint8_t i = 0; i < tabulation; i++)
-        Serial.write('\t');
-      Serial.println(fileName);
       bool matchesString = true;
       for (int i = 0; i < sizeof(fileName); i++)
       {
@@ -226,17 +208,14 @@ void displayDirectoryContent(File &aDirectory, byte tabulation)
       int number = 0;
       if (matchesString)
       {
-        Serial.println("Matches String.");
         for (int i = DIGITS_FILE_PREFIX; i < DIGITS_FILE_PREFIX + FILENAME_DIGITS; i++)
         {
-          Serial.println(fileName[i]);
           int factorial = FILENAME_DIGITS - (i - DIGITS_FILE_PREFIX + 1);
           int factor = fileName[i] - '0';
           int add = factor * round(pow(10, factorial));
           number += add;
         }
       }
-      Serial.println(number);
 
       if (number > file_number)
       {
@@ -245,62 +224,50 @@ void displayDirectoryContent(File &aDirectory, byte tabulation)
 
       if (file.isDir())
       {
-        Serial.println(F("/"));
         displayDirectoryContent(file, tabulation + 1);
       }
       else
       {
-        Serial.write('\t');
-        Serial.println(F(" bytes"));
       }
     }
     file.close();
   }
-  Serial.print("BIGGEST FILE: ");
-  Serial.println(file_number);
 }
 
 void setup()
 {
-  // Short blink message (3 times on, 3 times off)
-  for (int i = 0; i < 6; i++)
-  {
-    digitalWrite(LED_BUILTIN, i % 2 == 0 ? HIGH : LOW);
-    delay(100);
-  }
+  pinMode(RECORD_LED, OUTPUT);
   audio.speakerPin = SPEAKER_PIN; // 5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
   audio.quality(1);
   pinMode(12, OUTPUT); // Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
-  pinMode(RECORD_LED, OUTPUT);
-
-  Serial.begin(9600);
 
   if (!SD.begin(SD_ChipSelectPin))
   {
-    Serial.println("SD FAILED");
-    Serial.println("Please insert an SD and try again");
     return;
   }
   else
   {
-    Serial.println("SD OK");
   }
-  Serial.println(("%s has started.", VERSION));
   // The audio library needs to know which CS pin to use for recording
   audio.CSPin = SD_ChipSelectPin;
   // Now print files
   File dir;
   if (!dir.open("/"))
   {
-    Serial.println("SD Card might be corrupted.");
   }
   displayDirectoryContent(dir, 0);
   updateFileNumber();
+  for (int i = 0; i < 6; i++)
+  {
+    digitalWrite(RECORD_LED, i % 2 == 0 ? HIGH : LOW);
+    delay(100);
+  }
   // Connect all events...
   pinMode(SPEED_DIAL_SENSOR, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(SPEED_DIAL_SENSOR), speedDialCallback, FALLING);
   pinMode(PHONE_SENSOR, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PHONE_SENSOR), phoneChangeCallback, CHANGE);
+
   // TODO: Maybe make an own record file?
 }
 
