@@ -17,7 +17,6 @@ Performance is very dependant on SD write speed, and memory used.
 Better performance may be seen using the SdFat library. See included example for usage.
 Running the Arduino from a battery or filtered power supply will reduce noise.
 */
-
 #include <SdFat.h>
 #include <SPI.h>
 #include <TMRpcm.h>
@@ -31,10 +30,10 @@ TMRpcm audio;
 #define SD_ChipSelectPin 10
 const String VERSION = "HOCHZEITSANRUF V0.1.0 ALPHA";
 const int FILENAME_DIGITS = 4;
-const char FILE_PREFIXNAME[8] = "answer-";
-const char EXTENSION[5] = ".wav";
+const char FILE_PREFIXNAME[7] = "answer-";
+const char EXTENSION[4] = ".wav";
 char GREETING_FILE[20] = "greeting.wav";
-const int RECORD_BUTTON = 2; // Not used right now
+const int SPEED_DIAL_SENSOR = 2;
 const int PHONE_SENSOR = 3;
 const int RECORD_LED = 4;
 const int SPEAKER_PIN = 9;
@@ -43,11 +42,10 @@ const bool INVERT_PHONE_SENSOR = true;
 int file_number = -1;
 char versionString[FILENAME_DIGITS] = "0000";
 char currentFilename[50] = "";
-
-const int sample_rate = 8000;
+int isPlayingLastMessage = 0;
+const int sample_rate = 16000;
 int currentFile = 0;
 int abortedRecording = 0;
-
 int isRecording = 0;
 
 void updateFileNumber()
@@ -78,11 +76,12 @@ void updateFileNumber()
 
 void userAcceptsPhoneCallback()
 {
+  // Set audio to phone speaker
   Serial.println("----------------\n\n");
   isRecording = 1;
   // Play audio
   Serial.println("HANDLER: User took the phone");
-
+  Serial.println("Playback stopped.");
   Serial.print("Playing greeting file: ");
   Serial.println(GREETING_FILE);
   audio.play(GREETING_FILE);
@@ -149,6 +148,19 @@ void phoneChangeCallback()
   {
     userHangsUpPhoneCallback();
   }
+}
+
+void speedDialCallback()
+{
+  Serial.println("Speedial callback is called");
+  if (isRecording == 1)
+  {
+    Serial.println("Not playing because it is recording.");
+    return;
+  }
+  Serial.println("Playing last message...");
+  Serial.println(currentFilename);
+  audio.play(currentFilename);
 }
 
 void wait_min(int mins)
@@ -243,7 +255,8 @@ void setup()
     delay(100);
   }
   audio.speakerPin = SPEAKER_PIN; // 5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
-  pinMode(12, OUTPUT);            // Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
+  audio.quality(1);
+  pinMode(12, OUTPUT); // Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45
   pinMode(RECORD_LED, OUTPUT);
 
   Serial.begin(9600);
@@ -268,7 +281,10 @@ void setup()
     Serial.println("SD Card might be corrupted.");
   }
   displayDirectoryContent(dir, 0);
+  updateFileNumber();
   // Connect all events...
+  // pinMode(SPEED_DIAL_SENSOR, INPUT_PULLUP);
+  // attachInterrupt(digitalPinToInterrupt(INPUT_PULLUP), speedDialCallback, FALLING);
   pinMode(PHONE_SENSOR, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PHONE_SENSOR), phoneChangeCallback, CHANGE);
   // TODO: Maybe make an own record file?
